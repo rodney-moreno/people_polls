@@ -909,6 +909,7 @@ dependencies = [
  "actix-web",
  "anyhow",
  "edgedb-tokio",
+ "serde",
  "tokio",
 ]
 
