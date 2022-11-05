@@ -6,9 +6,8 @@ export interface ChoiceProps {
 
 const Choice: React.FC<ChoiceProps> = () => {
     return (
-        <div>Display Choice</div>
-    );
-
+        <button>Choice Here</button>
+    )
 }
 
 export default Choice;
