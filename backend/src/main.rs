@@ -3,25 +3,23 @@ use edgedb_tokio::Client;
 use serde::Deserialize;
 use std::sync::Mutex;
 
-#[derive(Deserialize)]
-struct CreateUserInput {
-    email: String,
-    name: String,
-}
-
 struct AppState {
     pub client: Client,
 }
 
 async fn index(data: web::Data<Mutex<AppState>>) -> impl Responder {
     let conn = &data.lock().unwrap().client;
-    let result = conn
-        .query_json("SELECT User { email, name }", &())
-        .await;
+    let result = conn.query_json("SELECT User { email, name }", &()).await;
     match result {
         Ok(val) => val.to_string(),
         Err(_) => "Error".to_string(),
     }
+}
+
+#[derive(Deserialize)]
+struct CreateUserInput {
+    email: String,
+    name: String,
 }
 
 async fn create_user(
@@ -44,20 +42,46 @@ async fn create_user(
     }
 }
 
+#[derive(Deserialize)]
+struct CreatePollInput {
+    question_text: String,
+    prompt_a: String,
+    prompt_b: String,
+}
+
+async fn create_poll(input: web::Json<CreatePollInput>, data: web::Data<Mutex<AppState>>) -> impl Responder {
+    let conn = &data.lock().unwrap().client;
+    let result = conn
+        .query_required_single_json(
+            "insert Poll {
+        question_text := <str>$0,
+        prompt_a := <str>$1,
+        prompt_b := <str>$2
+    };",
+            &(&input.question_text, &input.prompt_a, &input.prompt_b),
+        )
+        .await;
+    match result {
+        Ok(result) => result.to_string(),
+        Err(_) => "Error".to_string(),
+    }
+}
+
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    let conn = edgedb_tokio::create_client().await?;
+    let client = edgedb_tokio::create_client().await?;
+    client.ensure_connected().await?;
 
-    let data = web::Data::new(Mutex::new(AppState { client: conn }));
+    let data = web::Data::new(Mutex::new(AppState { client }));
 
     HttpServer::new(move || {
         App::new()
             .app_data(web::Data::clone(&data))
             .route("/", web::get().to(index))
-            .route("/user", web::post().to(create_user))
-            // //.route("/polls", web::post().to())
-            // //.route("/polls/{pollID}", web::get().to())
-            // .route("/pollResponses", web::post().to())
+            .route("/users", web::post().to(create_user))
+            .route("/polls", web::post().to(create_poll))
+        // .route("/polls/{pollID}", web::get().to())
+        // .route("/pollResponses", web::post().to())
     })
     .bind(("127.0.0.1", 8080))?
     .run()
