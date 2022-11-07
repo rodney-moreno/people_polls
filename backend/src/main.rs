@@ -2,7 +2,6 @@ use actix_web::{web, App, HttpServer, Responder};
 use edgedb_tokio::Client;
 use serde::Deserialize;
 use std::sync::Mutex;
-use uuid::Uuid;
 
 struct AppState {
     pub client: Client,
@@ -86,14 +85,14 @@ async fn create_poll_input(
     let result = conn
         .query_required_single_json(
             "insert PollResponse {
-            choice := <str>$0,
+            choice := <Choice><str>$0,
             user := (select User filter .email = <str>$1),
-            poll := (select Poll filter .id = <uuid>$2)
+            poll := (select Poll filter .id = <uuid><str>$2)
             };",
             &(
                 if input.choice { "ChoiceA" } else { "ChoiceB" },
                 "maxmo@gmail.com",
-                Uuid::parse_str(&input.poll_id).unwrap(),
+                &input.poll_id,
             ),
         )
         .await;
