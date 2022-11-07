@@ -29,5 +29,6 @@ module default {
     required property choice -> Choice;
     required link user -> User;
     required link poll -> Poll;
+    constraint exclusive on ((.user, .poll));
   }
 }
