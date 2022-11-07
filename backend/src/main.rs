@@ -105,6 +105,46 @@ async fn create_poll_input(
     }
 }
 
+#[derive(Deserialize)]
+struct SearchParams {
+    hasVotedIn: bool,
+}
+
+async fn get_polls(
+    data: web::Data<Mutex<AppState>>,
+    query: web::Query<SearchParams>,
+) -> impl Responder {
+    let conn = &data.lock().unwrap().client;
+    /*
+        1. Show all approved polls we did not vote in (Date)
+        2. Show all approved polls that we already voted in, and our responses (Date)
+        3. Show all completed polls with calculated results
+    */
+
+    let result = conn
+        .query_json(
+            "Select Poll {
+                question_text,
+                user_response :=(
+                    Select PollResponse { choice }
+                        filter PollResponse.poll.id = Poll.id and PollResponse.user.email = <str>$0
+                )
+            } filter count((
+                Select PollResponse 
+                    filter PollResponse.poll.id = Poll.id and PollResponse.user.email = <str>$0
+            )) = <int64>$1;",
+            &("maxmo@gmail.com", if query.hasVotedIn { 1i64 } else { 0i64 }),
+        )
+        .await;
+    match result {
+        Ok(result) => result.to_string(),
+        Err(e) => {
+            println!("{}", e);
+            "Error".to_string()
+        }
+    }
+}
+
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     let client = edgedb_tokio::create_client().await?;
@@ -118,7 +158,7 @@ async fn main() -> anyhow::Result<()> {
             .route("/", web::get().to(index))
             .route("/users", web::post().to(create_user))
             .route("/polls", web::post().to(suggest_poll))
-            // .route("/polls/{pollID}", web::get().to())
+            .route("/polls", web::get().to(get_polls))
             .route("/pollResponses", web::post().to(create_poll_input))
     })
     .bind(("127.0.0.1", 8080))?
