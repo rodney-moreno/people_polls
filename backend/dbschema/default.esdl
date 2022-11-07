@@ -22,6 +22,7 @@ module default {
     multi link poll_responses -> PollResponse {
       constraint exclusive;
     }
+    required property is_approved -> bool;
   }
 
   type PollResponse {

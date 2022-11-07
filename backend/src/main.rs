@@ -49,14 +49,18 @@ struct CreatePollInput {
     prompt_b: String,
 }
 
-async fn create_poll(input: web::Json<CreatePollInput>, data: web::Data<Mutex<AppState>>) -> impl Responder {
+async fn suggest_poll(
+    input: web::Json<CreatePollInput>,
+    data: web::Data<Mutex<AppState>>,
+) -> impl Responder {
     let conn = &data.lock().unwrap().client;
     let result = conn
         .query_required_single_json(
             "insert Poll {
         question_text := <str>$0,
         prompt_a := <str>$1,
-        prompt_b := <str>$2
+        prompt_b := <str>$2,
+        is_approved := false
     };",
             &(&input.question_text, &input.prompt_a, &input.prompt_b),
         )
@@ -79,7 +83,7 @@ async fn main() -> anyhow::Result<()> {
             .app_data(web::Data::clone(&data))
             .route("/", web::get().to(index))
             .route("/users", web::post().to(create_user))
-            .route("/polls", web::post().to(create_poll))
+            .route("/polls", web::post().to(suggest_poll))
         // .route("/polls/{pollID}", web::get().to())
         // .route("/pollResponses", web::post().to())
     })
