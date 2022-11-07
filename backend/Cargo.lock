@@ -911,6 +911,7 @@ dependencies = [
  "edgedb-tokio",
  "serde",
  "tokio",
+ "uuid",
 ]
 
 [[package]]

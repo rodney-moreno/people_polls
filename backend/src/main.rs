@@ -2,6 +2,7 @@ use actix_web::{web, App, HttpServer, Responder};
 use edgedb_tokio::Client;
 use serde::Deserialize;
 use std::sync::Mutex;
+use uuid::Uuid;
 
 struct AppState {
     pub client: Client,
@@ -71,6 +72,40 @@ async fn suggest_poll(
     }
 }
 
+#[derive(Deserialize)]
+struct CreatePollResponseInput {
+    choice: bool,
+    poll_id: String,
+}
+
+async fn create_poll_input(
+    input: web::Json<CreatePollResponseInput>,
+    data: web::Data<Mutex<AppState>>,
+) -> impl Responder {
+    let conn = &data.lock().unwrap().client;
+    let result = conn
+        .query_required_single_json(
+            "insert PollResponse {
+            choice := <str>$0,
+            user := (select User filter .email = <str>$1),
+            poll := (select Poll filter .id = <uuid>$2)
+            };",
+            &(
+                if input.choice { "ChoiceA" } else { "ChoiceB" },
+                "maxmo@gmail.com",
+                Uuid::parse_str(&input.poll_id).unwrap(),
+            ),
+        )
+        .await;
+    match result {
+        Ok(result) => result.to_string(),
+        Err(e) => {
+            println!("{}", e);
+            "Error".to_string()
+        }
+    }
+}
+
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     let client = edgedb_tokio::create_client().await?;
@@ -84,8 +119,8 @@ async fn main() -> anyhow::Result<()> {
             .route("/", web::get().to(index))
             .route("/users", web::post().to(create_user))
             .route("/polls", web::post().to(suggest_poll))
-        // .route("/polls/{pollID}", web::get().to())
-        // .route("/pollResponses", web::post().to())
+            // .route("/polls/{pollID}", web::get().to())
+            .route("/pollResponses", web::post().to(create_poll_input))
     })
     .bind(("127.0.0.1", 8080))?
     .run()
