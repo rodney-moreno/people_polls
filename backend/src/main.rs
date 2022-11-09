@@ -1,7 +1,8 @@
-use actix_web::{web, App, HttpServer, Responder};
+use actix_web::{web, App, HttpServer, Responder, middleware::Logger};
 use edgedb_tokio::Client;
 use serde::Deserialize;
 use std::sync::Mutex;
+use env_logger::Env;
 
 struct AppState {
     pub client: Client,
@@ -149,11 +150,12 @@ async fn get_polls(
 async fn main() -> anyhow::Result<()> {
     let client = edgedb_tokio::create_client().await?;
     client.ensure_connected().await?;
-
+    env_logger::init_from_env(Env::default().default_filter_or("info"));
     let data = web::Data::new(Mutex::new(AppState { client }));
 
     HttpServer::new(move || {
         App::new()
+            .wrap(Logger::default())
             .app_data(web::Data::clone(&data))
             .route("/", web::get().to(index))
             .route("/users", web::post().to(create_user))

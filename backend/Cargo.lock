@@ -533,7 +533,20 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "15b0a4d2e39f8420210be8b27eeda28029729e2fd4291019455016c348240c38"
 dependencies = [
  "atty",
- "humantime",
+ "humantime 1.3.0",
+ "log",
+ "regex",
+ "termcolor",
+]
+
+[[package]]
+name = "env_logger"
+version = "0.9.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a12e6657c4c97ebab115a42dcee77225f7f482cdd841cf7088c657a42e9e00e7"
+dependencies = [
+ "atty",
+ "humantime 2.1.0",
  "log",
  "regex",
  "termcolor",
@@ -698,6 +711,12 @@ checksum = "df004cfca50ef23c36850aaaa59ad52cc70d0e90243c3c7737a4dd32dc7a3c4f"
 dependencies = [
  "quick-error",
 ]
+
+[[package]]
+name = "humantime"
+version = "2.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9a3a5bfb195931eeb336b2a7b4d761daec841b97f947d34394601737a7bba5e4"
 
 [[package]]
 name = "idna"
@@ -909,6 +928,7 @@ dependencies = [
  "actix-web",
  "anyhow",
  "edgedb-tokio",
+ "env_logger 0.9.3",
  "serde",
  "tokio",
  "uuid",
@@ -1485,7 +1505,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "344ab291be7ed9ab296fc28153fe3ac1e430f44c4dfb3f1324a3c09bbbb5f104"
 dependencies = [
  "anyhow",
- "env_logger",
+ "env_logger 0.5.13",
  "log",
  "pem",
  "test-cert-gen",
