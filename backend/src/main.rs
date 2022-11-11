@@ -1,12 +1,14 @@
-use actix_session::{storage::CookieSessionStore, Session, SessionMiddleware, SessionInsertError};
-use actix_web::{
-    cookie::Key, middleware::Logger, web, App, Error, HttpResponse, HttpServer, Responder,
+use actix_session::{storage::CookieSessionStore, Session, SessionMiddleware};
+use actix_web::{cookie::Key, middleware::Logger, web, App, Error, HttpServer, Responder};
+use argon2::{
+    password_hash::{rand_core::OsRng, PasswordHash, PasswordHasher, PasswordVerifier, SaltString},
+    Argon2,
 };
 use edgedb_tokio::Client;
 use env_logger::Env;
 use serde::Deserialize;
+use serde_json::Value;
 use std::sync::Mutex;
-use std::error;
 
 struct AppState {
     pub client: Client,
@@ -20,6 +22,9 @@ async fn index(data: web::Data<Mutex<AppState>>) -> impl Responder {
         Err(_) => "Error".to_string(),
     }
 }
+
+// TODO auth middleware
+// session.get::<String>("email")?.unwrap();
 
 #[derive(Deserialize)]
 struct CreateUserInput {
@@ -152,19 +157,101 @@ async fn get_polls(
         }
     }
 }
+
+#[derive(Deserialize)]
+struct RegisterInput {
+    email: String,
+    password: String,
+    name: String,
+}
+
+async fn register(
+    input: web::Json<RegisterInput>,
+    data: web::Data<Mutex<AppState>>,
+) -> impl Responder {
+    let conn = &data.lock().unwrap().client;
+
+    let salt = SaltString::generate(&mut OsRng);
+    let password_hash = Argon2::default()
+        .hash_password(input.password.as_bytes(), &salt)
+        .map_err(|e| actix_web::error::ErrorInternalServerError(e))?;
+
+    conn.query_json(
+        "insert User { email := <str>$0, password_hash := <str>$1, name := <str>$2 };",
+        &(&input.email, password_hash.to_string(), &input.name),
+    )
+    .await
+    .map_err(|e| actix_web::error::ErrorBadRequest(e))?;
+
+    Result::<String, Error>::Ok("{}".to_string())
+}
+
 #[derive(Deserialize)]
 struct LoginInput {
     email: String,
-    password: String
+    password: String,
 }
 
-// check to see if registered
-async fn login(session: Session, input: web::Json<LoginInput>) -> impl Responder {
+async fn login(
+    session: Session,
+    input: web::Json<LoginInput>,
+    data: web::Data<Mutex<AppState>>,
+) -> impl Responder {
+    // Check to see if registered and if password is correct
     let conn = &data.lock().unwrap().client;
+    let json = conn
+        .query_json(
+            "select User { password_hash } filter User.email = <str>$0;",
+            &(&input.email,),
+        )
+        .await
+        .map_err(|e| actix_web::error::ErrorInternalServerError(e))?;
+    let parsed: Value = serde_json::from_str(json.as_ref())
+        .map_err(|e| actix_web::error::ErrorInternalServerError(e))?;
+    let users = parsed
+        .as_array()
+        .ok_or(actix_web::error::ErrorInternalServerError(
+            "JSON from database is not in the expected shape.",
+        ))?;
+
+    let user = users
+        .get(0)
+        .ok_or(actix_web::error::ErrorInternalServerError(
+            "User not found.",
+        ))?
+        .as_object()
+        .ok_or(actix_web::error::ErrorInternalServerError(
+            "JSON from database is not in the expected shape.",
+        ))?;
+
+    let password_hash = user
+        .get("password_hash")
+        .ok_or(actix_web::error::ErrorInternalServerError(
+            "JSON from database is not in the expected shape.",
+        ))?
+        .as_str()
+        .ok_or(actix_web::error::ErrorInternalServerError(
+            "JSON from database is not in the expected shape.",
+        ))?;
+
+    let parsed_hash = PasswordHash::new(&password_hash)
+        .map_err(|e| actix_web::error::ErrorInternalServerError(e))?;
+    if !Argon2::default()
+        .verify_password(input.password.as_bytes(), &parsed_hash)
+        .is_ok()
+    {
+        return Err(actix_web::error::ErrorBadRequest("Incorrect password."));
+    }
+
     session.insert("email", &input.email)?;
 
-    // session.get::<i32>("counter")?.unwrap();
     Result::<String, Error>::Ok("{}".to_string())
+}
+
+async fn logout(session: Session) -> impl Responder {
+    println!("{:#?}", session.entries()); // if we don't read the session, session.purge() won't do anything
+    session.purge();
+    "{}"
 }
 
 #[tokio::main]
@@ -179,9 +266,14 @@ async fn main() -> anyhow::Result<()> {
             .wrap(Logger::default())
             .wrap(
                 // create cookie based session middleware
-                SessionMiddleware::builder(CookieSessionStore::default(), Key::from(&[0; 64]))
-                    .cookie_secure(false)
-                    .build(),
+                SessionMiddleware::builder(
+                    CookieSessionStore::default(),
+                    Key::from(
+                        b"9c53a04cdc7e61db9b9fb1636f345293eac36ad55e653edb0c8524a0a873eb3c5b958534a3f7f26a266472103df5b419de1315d90ade5523d0029362ddf457c0",
+                    ),
+                )
+                .cookie_secure(false)
+                .build(),
             )
             .app_data(web::Data::clone(&data))
             .route("/", web::get().to(index))
@@ -189,7 +281,9 @@ async fn main() -> anyhow::Result<()> {
             .route("/polls", web::post().to(suggest_poll))
             .route("/polls", web::get().to(get_polls))
             .route("/pollResponses", web::post().to(create_poll_input))
+            .route("/register", web::post().to(register))
             .route("/login", web::post().to(login))
+            .route("/logout", web::get().to(logout))
     })
     .bind(("127.0.0.1", 8080))?
     .run()

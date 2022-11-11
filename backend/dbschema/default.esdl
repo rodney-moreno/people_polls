@@ -7,6 +7,7 @@ module default {
       constraint exclusive;
       constraint min_len_value(1);
     }
+    required property password_hash -> str;
 
     property name -> str;
     

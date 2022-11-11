@@ -1092,6 +1092,7 @@ dependencies = [
  "edgedb-tokio",
  "env_logger 0.9.3",
  "serde",
+ "serde_json",
  "tokio",
  "uuid",
 ]
