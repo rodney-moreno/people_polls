@@ -1,8 +1,12 @@
-use actix_web::{web, App, HttpServer, Responder, middleware::Logger};
+use actix_session::{storage::CookieSessionStore, Session, SessionMiddleware, SessionInsertError};
+use actix_web::{
+    cookie::Key, middleware::Logger, web, App, Error, HttpResponse, HttpServer, Responder,
+};
 use edgedb_tokio::Client;
+use env_logger::Env;
 use serde::Deserialize;
 use std::sync::Mutex;
-use env_logger::Env;
+use std::error;
 
 struct AppState {
     pub client: Client,
@@ -134,7 +138,10 @@ async fn get_polls(
                 Select PollResponse 
                     filter PollResponse.poll.id = Poll.id and PollResponse.user.email = <str>$0
             )) = <int64>$1;",
-            &("maxmo@gmail.com", if query.hasVotedIn { 1i64 } else { 0i64 }),
+            &(
+                "maxmo@gmail.com",
+                if query.hasVotedIn { 1i64 } else { 0i64 },
+            ),
         )
         .await;
     match result {
@@ -144,6 +151,20 @@ async fn get_polls(
             "Error".to_string()
         }
     }
+}
+#[derive(Deserialize)]
+struct LoginInput {
+    email: String,
+    password: String
+}
+
+// check to see if registered
+async fn login(session: Session, input: web::Json<LoginInput>) -> impl Responder {
+    let conn = &data.lock().unwrap().client;
+    session.insert("email", &input.email)?;
+
+    // session.get::<i32>("counter")?.unwrap();
+    Result::<String, Error>::Ok("{}".to_string())
 }
 
 #[tokio::main]
@@ -156,12 +177,19 @@ async fn main() -> anyhow::Result<()> {
     HttpServer::new(move || {
         App::new()
             .wrap(Logger::default())
+            .wrap(
+                // create cookie based session middleware
+                SessionMiddleware::builder(CookieSessionStore::default(), Key::from(&[0; 64]))
+                    .cookie_secure(false)
+                    .build(),
+            )
             .app_data(web::Data::clone(&data))
             .route("/", web::get().to(index))
             .route("/users", web::post().to(create_user))
             .route("/polls", web::post().to(suggest_poll))
             .route("/polls", web::get().to(get_polls))
             .route("/pollResponses", web::post().to(create_poll_input))
+            .route("/login", web::post().to(login))
     })
     .bind(("127.0.0.1", 8080))?
     .run()
