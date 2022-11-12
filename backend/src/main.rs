@@ -1,13 +1,22 @@
-use actix_session::{storage::CookieSessionStore, Session, SessionMiddleware};
-use actix_web::{cookie::Key, middleware::Logger, web, App, Error, HttpServer, Responder};
+use actix_session::{storage::CookieSessionStore, Session, SessionExt, SessionMiddleware};
+use actix_web::{
+    body::BoxBody,
+    cookie::Key,
+    dev::{forward_ready, Service, ServiceRequest, ServiceResponse, Transform},
+    middleware::Logger,
+    web, App, Error, HttpResponse, HttpServer, Responder,
+};
 use argon2::{
     password_hash::{rand_core::OsRng, PasswordHash, PasswordHasher, PasswordVerifier, SaltString},
     Argon2,
 };
 use edgedb_tokio::Client;
 use env_logger::Env;
+use futures::future::LocalBoxFuture;
 use serde::Deserialize;
 use serde_json::Value;
+use std::future::{ready, Ready};
+use std::rc::Rc;
 use std::sync::Mutex;
 
 struct AppState {
@@ -23,8 +32,58 @@ async fn index(data: web::Data<Mutex<AppState>>) -> impl Responder {
     }
 }
 
-// TODO auth middleware
-// session.get::<String>("email")?.unwrap();
+pub struct Authenticate;
+
+impl<S, B> Transform<S, ServiceRequest> for Authenticate
+where
+    S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error> + 'static,
+    S::Future: 'static,
+    B: 'static + actix_web::body::MessageBody,
+{
+    type Response = ServiceResponse<BoxBody>;
+    type Error = Error;
+    type InitError = ();
+    type Transform = AuthenticateMiddleware<S>;
+    type Future = Ready<Result<Self::Transform, Self::InitError>>;
+
+    fn new_transform(&self, service: S) -> Self::Future {
+        ready(Ok(AuthenticateMiddleware {
+            service: Rc::new(service),
+        }))
+    }
+}
+
+pub struct AuthenticateMiddleware<S> {
+    service: Rc<S>,
+}
+
+impl<S, B> Service<ServiceRequest> for AuthenticateMiddleware<S>
+where
+    S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error> + 'static,
+    S::Future: 'static,
+    B: 'static + actix_web::body::MessageBody,
+{
+    type Response = ServiceResponse<BoxBody>;
+    type Error = Error;
+    type Future = LocalBoxFuture<'static, Result<Self::Response, Self::Error>>;
+
+    forward_ready!(service);
+
+    fn call(&self, req: ServiceRequest) -> Self::Future {
+        let srv = Rc::clone(&self.service);
+        Box::pin(async move {
+            let session = req.get_session();
+            println!("{:?}", session.entries());
+
+            if session.entries().is_empty() || session.get::<String>("email")?.is_none() {
+                let resp = HttpResponse::Unauthorized().body("{}");
+                Ok(req.into_response(resp).map_into_boxed_body())
+            } else {
+                Ok(srv.call(req).await?.map_into_boxed_body())
+            }
+        })
+    }
+}
 
 #[derive(Deserialize)]
 struct CreateUserInput {
@@ -249,7 +308,8 @@ async fn login(
 }
 
 async fn logout(session: Session) -> impl Responder {
-    println!("{:#?}", session.entries()); // if we don't read the session, session.purge() won't do anything
+    // WARNING: if we never read the session, session.purge() won't do anything
+    // the Authenticate middleware should have read already
     session.purge();
     "{}"
 }
@@ -263,7 +323,6 @@ async fn main() -> anyhow::Result<()> {
 
     HttpServer::new(move || {
         App::new()
-            .wrap(Logger::default())
             .wrap(
                 // create cookie based session middleware
                 SessionMiddleware::builder(
@@ -275,15 +334,16 @@ async fn main() -> anyhow::Result<()> {
                 .cookie_secure(false)
                 .build(),
             )
+            .wrap(Logger::default())
             .app_data(web::Data::clone(&data))
             .route("/", web::get().to(index))
-            .route("/users", web::post().to(create_user))
-            .route("/polls", web::post().to(suggest_poll))
-            .route("/polls", web::get().to(get_polls))
-            .route("/pollResponses", web::post().to(create_poll_input))
+            .route("/users", web::post().to(create_user).wrap(Authenticate))
+            .route("/polls", web::post().to(suggest_poll).wrap(Authenticate))
+            .route("/polls", web::get().to(get_polls).wrap(Authenticate))
+            .route("/pollResponses", web::post().to(create_poll_input).wrap(Authenticate))
             .route("/register", web::post().to(register))
             .route("/login", web::post().to(login))
-            .route("/logout", web::get().to(logout))
+            .route("/logout", web::get().to(logout).wrap(Authenticate))
     })
     .bind(("127.0.0.1", 8080))?
     .run()
