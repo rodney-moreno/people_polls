@@ -12,10 +12,15 @@ const Login: React.FC<LoginProps> = () => {
     return (
         <form onSubmit={e => {
             e.preventDefault();
-            fetch("localhost:8080/login", {
+            fetch("http://localhost:8080/login", {
                 method: "POST",
                 headers: {"content-type": "application/json"},
-                body:  JSON.stringify({email, password})
+                body:  JSON.stringify({email, password}),
+                credentials: 'include'
+            }).then((res) => {
+                if(res.status >= 400 && res.status < 500) {
+                    console.log("Username or Password incorrect")
+                }
             }) 
             }}>
             <label>Email<input type="text" placeholder="email@email.com" value={email} onChange={e => setEmail(e.target.value)}/></label>
