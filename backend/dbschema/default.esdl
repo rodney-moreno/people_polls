@@ -7,6 +7,7 @@ module default {
       constraint exclusive;
       constraint min_len_value(1);
     }
+    required property password_hash -> str;
 
     property name -> str;
     
@@ -22,11 +23,13 @@ module default {
     multi link poll_responses -> PollResponse {
       constraint exclusive;
     }
+    required property is_approved -> bool;
   }
 
   type PollResponse {
     required property choice -> Choice;
     required link user -> User;
     required link poll -> Poll;
+    constraint exclusive on ((.user, .poll));
   }
 }
