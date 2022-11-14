@@ -1,8 +1,10 @@
+use actix_cors::Cors;
 use actix_session::{storage::CookieSessionStore, Session, SessionExt, SessionMiddleware};
 use actix_web::{
     body::BoxBody,
     cookie::Key,
     dev::{forward_ready, Service, ServiceRequest, ServiceResponse, Transform},
+    http,
     middleware::Logger,
     web, App, Error, HttpResponse, HttpServer, Responder,
 };
@@ -275,7 +277,7 @@ async fn login(
 
     let user = users
         .get(0)
-        .ok_or(actix_web::error::ErrorInternalServerError(
+        .ok_or(actix_web::error::ErrorBadRequest(
             "User not found.",
         ))?
         .as_object()
@@ -322,7 +324,14 @@ async fn main() -> anyhow::Result<()> {
     let data = web::Data::new(Mutex::new(AppState { client }));
 
     HttpServer::new(move || {
+        let cors = Cors::default()
+        .allowed_origin("http://localhost:3000")
+        .allowed_methods(vec!["GET", "POST"])
+        .allowed_headers(vec![http::header::ACCEPT])
+        .allowed_header(http::header::CONTENT_TYPE)
+        .supports_credentials();
         App::new()
+            .wrap(cors)
             .wrap(
                 // create cookie based session middleware
                 SessionMiddleware::builder(
