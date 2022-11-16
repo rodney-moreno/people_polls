@@ -16,6 +16,7 @@ use edgedb_tokio::Client;
 use env_logger::Env;
 use futures::future::LocalBoxFuture;
 use serde::Deserialize;
+use serde_json::json;
 use serde_json::Value;
 use std::future::{ready, Ready};
 use std::rc::Rc;
@@ -262,7 +263,7 @@ async fn login(
     let conn = &data.lock().unwrap().client;
     let json = conn
         .query_json(
-            "select User { password_hash } filter User.email = <str>$0;",
+            "select User { password_hash, name } filter User.email = <str>$0;",
             &(&input.email,),
         )
         .await
@@ -277,9 +278,7 @@ async fn login(
 
     let user = users
         .get(0)
-        .ok_or(actix_web::error::ErrorBadRequest(
-            "User not found.",
-        ))?
+        .ok_or(actix_web::error::ErrorBadRequest("User not found."))?
         .as_object()
         .ok_or(actix_web::error::ErrorInternalServerError(
             "JSON from database is not in the expected shape.",
@@ -306,7 +305,17 @@ async fn login(
 
     session.insert("email", &input.email)?;
 
-    Result::<String, Error>::Ok("{}".to_string())
+    let name = user
+        .get("name")
+        .ok_or(actix_web::error::ErrorInternalServerError(
+            "JSON from database is not in the expected shape.",
+        ))?
+        .as_str()
+        .ok_or(actix_web::error::ErrorInternalServerError(
+            "JSON from database is not in the expected shape.",
+        ))?;
+
+    Result::<String, Error>::Ok(json!({"email": input.email, "name": name}).to_string())
 }
 
 async fn logout(session: Session) -> impl Responder {
@@ -326,6 +335,7 @@ async fn main() -> anyhow::Result<()> {
     HttpServer::new(move || {
         let cors = Cors::default()
         .allowed_origin("http://localhost:3000")
+        .allowed_origin("http://127.0.0.1:5173")
         .allowed_methods(vec!["GET", "POST"])
         .allowed_headers(vec![http::header::ACCEPT])
         .allowed_header(http::header::CONTENT_TYPE)

@@ -19,17 +19,20 @@ async function handleSubmit(e: Event) {
         "content-type": "application/json",
       },
       body: JSON.stringify({
-        email,
-        password,
+        email: email.value,
+        password: password.value,
       }),
+      credentials: "include",
     });
     if (response.status >= 400) {
       try {
-        const json = await response.json();
-        error.value = json.error;
+        const reason = await response.text();
+        error.value = reason;
       } catch (e) {
         error.value = "An unexpected error occurred.";
+        throw e;
       }
+      throw new Error(error.value);
     }
     const json = await response.json();
     user.email = json.email;
