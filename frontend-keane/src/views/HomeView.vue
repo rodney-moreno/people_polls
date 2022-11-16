@@ -4,6 +4,7 @@ import TheWelcome from "../components/TheWelcome.vue";
 
 <template>
   <main>
+    <h1>People Polls</h1>
     <TheWelcome />
   </main>
 </template>
