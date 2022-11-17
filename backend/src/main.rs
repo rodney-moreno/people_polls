@@ -30,8 +30,8 @@ async fn index(data: web::Data<Mutex<AppState>>) -> impl Responder {
     let conn = &data.lock().unwrap().client;
     let result = conn.query_json("SELECT User { email, name }", &()).await;
     match result {
-        Ok(val) => val.to_string(),
-        Err(_) => "Error".to_string(),
+        Ok(result) => Result::Ok(result.to_string()),
+        Err(e) => Result::Err(actix_web::error::ErrorBadRequest(e)),
     }
 }
 
@@ -112,8 +112,8 @@ async fn suggest_poll(
         )
         .await;
     match result {
-        Ok(result) => result.to_string(),
-        Err(_) => "Error".to_string(),
+        Ok(result) => Result::Ok(result.to_string()),
+        Err(e) => Result::Err(actix_web::error::ErrorBadRequest(e)),
     }
 }
 
@@ -143,11 +143,8 @@ async fn create_poll_input(
         )
         .await;
     match result {
-        Ok(result) => result.to_string(),
-        Err(e) => {
-            println!("{}", e);
-            "Error".to_string()
-        }
+        Ok(result) => Result::Ok(result.to_string()),
+        Err(e) => Result::Err(actix_web::error::ErrorBadRequest(e)),
     }
 }
 
@@ -188,11 +185,8 @@ async fn get_polls(
         )
         .await;
     match result {
-        Ok(result) => result.to_string(),
-        Err(e) => {
-            println!("{}", e);
-            "Error".to_string()
-        }
+        Ok(result) => Result::Ok(result.to_string()),
+        Err(e) => Result::Err(actix_web::error::ErrorBadRequest(e)),
     }
 }
 
