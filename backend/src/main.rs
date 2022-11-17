@@ -330,15 +330,14 @@ async fn login(
 
     session.insert("email", &input.email)?;
 
-    let name = user
-        .get("name")
-        .ok_or(actix_web::error::ErrorInternalServerError(
-            "JSON from database is not in the expected shape.",
-        ))?
-        .as_str()
-        .ok_or(actix_web::error::ErrorInternalServerError(
-            "JSON from database is not in the expected shape.",
-        ))?;
+    let name = match user.get("name") {
+        Some(s) => s
+            .as_str()
+            .ok_or(actix_web::error::ErrorInternalServerError(
+                "JSON from database is not in the expected shape.",
+            ))?,
+        None => "",
+    };
 
     Result::<String, Error>::Ok(json!({"email": input.email, "name": name}).to_string())
 }
