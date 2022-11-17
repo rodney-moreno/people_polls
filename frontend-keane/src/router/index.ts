@@ -30,6 +30,14 @@ const router = createRouter({
       },
     },
     {
+      path: "/logout",
+      name: "logout",
+      component: () => import("../views/LogoutView.vue"),
+      meta: {
+        requiresAuth: true,
+      },
+    },
+    {
       path: "/about",
       name: "about",
       // route level code-splitting
@@ -41,9 +49,11 @@ const router = createRouter({
 });
 
 router.beforeEach((to, from, next) => {
+  const user = useUser();
   if (
     to.matched.some((record) => record.meta.requiresAuth) &&
-    !useUser().email
+    user.isInitialFetchDone &&
+    !user.email
   ) {
     next("/login");
   } else {

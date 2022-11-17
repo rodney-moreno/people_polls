@@ -1,0 +1,3 @@
+<template>
+  <progress></progress>
+</template>
