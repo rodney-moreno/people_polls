@@ -6,7 +6,7 @@ use actix_web::{
     dev::{forward_ready, Service, ServiceRequest, ServiceResponse, Transform},
     http,
     middleware::Logger,
-    web, App, Error, HttpResponse, HttpServer, Responder,
+    web, App, Error, HttpMessage, HttpResponse, HttpServer, Responder,
 };
 use argon2::{
     password_hash::{rand_core::OsRng, PasswordHash, PasswordHasher, PasswordVerifier, SaltString},
@@ -26,13 +26,9 @@ struct AppState {
     pub client: Client,
 }
 
-async fn index(data: web::Data<Mutex<AppState>>) -> impl Responder {
-    let conn = &data.lock().unwrap().client;
-    let result = conn.query_json("SELECT User { email, name }", &()).await;
-    match result {
-        Ok(result) => Result::Ok(result.to_string()),
-        Err(e) => Result::Err(actix_web::error::ErrorBadRequest(e)),
-    }
+#[derive(Debug, Clone)]
+struct SessionUser {
+    email: String,
 }
 
 pub struct Authenticate;
@@ -82,10 +78,64 @@ where
                 let resp = HttpResponse::Unauthorized().body("{}");
                 Ok(req.into_response(resp).map_into_boxed_body())
             } else {
+                req.extensions_mut().insert(SessionUser {
+                    email: session.get::<String>("email")?.unwrap(),
+                });
                 Ok(srv.call(req).await?.map_into_boxed_body())
             }
         })
     }
+}
+
+async fn index(data: web::Data<Mutex<AppState>>) -> impl Responder {
+    let conn = &data.lock().unwrap().client;
+    let result = conn.query_json("SELECT User { email, name }", &()).await;
+    match result {
+        Ok(result) => Result::Ok(result.to_string()),
+        Err(e) => Result::Err(actix_web::error::ErrorBadRequest(e)),
+    }
+}
+
+async fn get_current_user(
+    data: web::Data<Mutex<AppState>>,
+    session_user: Option<web::ReqData<SessionUser>>,
+) -> impl Responder {
+    let conn = &data.lock().unwrap().client;
+    let email = &session_user
+        .ok_or(actix_web::error::ErrorInternalServerError(
+            "Session user is missing.",
+        ))?
+        .email;
+    let json = conn
+        .query_json(
+            "select User { name } filter User.email = <str>$0",
+            &(email.as_str(),),
+        )
+        .await
+        .map_err(|e| actix_web::error::ErrorInternalServerError(e))?;
+    let parsed: Value = serde_json::from_str(json.as_ref())
+        .map_err(|e| actix_web::error::ErrorInternalServerError(e))?;
+    let users = parsed
+        .as_array()
+        .ok_or(actix_web::error::ErrorInternalServerError(
+            "JSON from database is not in the expected shape.",
+        ))?;
+    let name = users
+        .get(0)
+        .ok_or(actix_web::error::ErrorBadRequest("User not found."))?
+        .as_object()
+        .ok_or(actix_web::error::ErrorInternalServerError(
+            "JSON from database is not in the expected shape.",
+        ))?
+        .get("name")
+        .ok_or(actix_web::error::ErrorInternalServerError(
+            "JSON from database is not in the expected shape.",
+        ))?
+        .as_str()
+        .ok_or(actix_web::error::ErrorInternalServerError(
+            "JSON from database is not in the expected shape.",
+        ))?;
+    Result::<String, Error>::Ok(json!({"email": email.as_str(), "name": name}).to_string())
 }
 
 #[derive(Deserialize)]
@@ -156,6 +206,7 @@ struct SearchParams {
 async fn get_polls(
     data: web::Data<Mutex<AppState>>,
     query: web::Query<SearchParams>,
+    session_user: Option<web::ReqData<SessionUser>>,
 ) -> impl Responder {
     let conn = &data.lock().unwrap().client;
     /*
@@ -179,7 +230,11 @@ async fn get_polls(
                     filter PollResponse.poll.id = Poll.id and PollResponse.user.email = <str>$0
             )) = <int64>$1 and Poll.is_approved = true;",
             &(
-                "maxmo@gmail.com",
+                &session_user
+                    .ok_or(actix_web::error::ErrorInternalServerError(
+                        "Session user is missing.",
+                    ))?
+                    .email,
                 if query.hasVotedIn { 1i64 } else { 0i64 },
             ),
         )
@@ -328,6 +383,7 @@ async fn main() -> anyhow::Result<()> {
             .wrap(Logger::default())
             .app_data(web::Data::clone(&data))
             .route("/", web::get().to(index))
+            .route("/me", web::get().to(get_current_user).wrap(Authenticate))
             .route("/polls", web::post().to(suggest_poll).wrap(Authenticate))
             .route("/polls", web::get().to(get_polls).wrap(Authenticate))
             .route("/pollResponses", web::post().to(create_poll_input).wrap(Authenticate))
