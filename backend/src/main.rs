@@ -89,32 +89,6 @@ where
 }
 
 #[derive(Deserialize)]
-struct CreateUserInput {
-    email: String,
-    name: String,
-}
-
-async fn create_user(
-    info: web::Json<CreateUserInput>,
-    data: web::Data<Mutex<AppState>>,
-) -> impl Responder {
-    let conn = &data.lock().unwrap().client;
-    let result = conn
-        .query_required_single_json(
-            "insert User {
-        email := <str>$0,
-        name := <str>$1
-    };",
-            &(&info.email, &info.name),
-        )
-        .await;
-    match result {
-        Ok(result) => result.to_string(),
-        Err(_) => "Error".to_string(),
-    }
-}
-
-#[derive(Deserialize)]
 struct CreatePollInput {
     question_text: String,
     prompt_a: String,
@@ -358,7 +332,6 @@ async fn main() -> anyhow::Result<()> {
             .wrap(Logger::default())
             .app_data(web::Data::clone(&data))
             .route("/", web::get().to(index))
-            .route("/users", web::post().to(create_user).wrap(Authenticate))
             .route("/polls", web::post().to(suggest_poll).wrap(Authenticate))
             .route("/polls", web::get().to(get_polls).wrap(Authenticate))
             .route("/pollResponses", web::post().to(create_poll_input).wrap(Authenticate))
