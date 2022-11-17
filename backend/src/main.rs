@@ -199,6 +199,7 @@ async fn create_poll_input(
 }
 
 #[derive(Deserialize)]
+#[allow(non_snake_case)]
 struct SearchParams {
     hasVotedIn: bool,
 }
