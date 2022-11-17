@@ -17,17 +17,11 @@ const router = createRouter({
       path: "/register",
       name: "register",
       component: () => import("../views/RegisterView.vue"),
-      beforeEnter: () => {
-        return !useUser().email;
-      },
     },
     {
       path: "/login",
       name: "login",
       component: () => import("../views/LoginView.vue"),
-      beforeEnter: () => {
-        return !useUser().email;
-      },
     },
     {
       path: "/logout",

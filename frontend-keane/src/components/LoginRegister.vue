@@ -1,21 +1,23 @@
 <script setup lang="ts">
+import { useUser } from "@/stores/user";
 import { ref } from "vue";
 import { useRouter } from "vue-router";
-import { useUser } from "../stores/user";
 
 const props = defineProps<{ type: "login" | "register" }>();
 
 const router = useRouter();
+const user = useUser();
 
 const email = ref("");
 const password = ref("");
 const name = ref("");
+const isLoginLoading = ref(false);
 
 const error = ref<string | undefined>();
 
 async function handleSubmit(e: Event) {
   e.preventDefault();
-  const user = useUser();
+  isLoginLoading.value = true;
   try {
     const response = await fetch(`http://127.0.0.1:8080/${props.type}`, {
       method: "POST",
@@ -39,22 +41,24 @@ async function handleSubmit(e: Event) {
       }
       throw new Error(error.value);
     }
-    const json = await response.json();
-    user.email = json.email;
-    user.name = json.name;
     if (props.type === "login") {
+      const json = await response.json();
+      user.login(json.email, json.name);
       router.push("/");
     } else {
       router.push("/login");
     }
   } catch (e: any) {
     error.value = e.message;
+    throw e;
+  } finally {
+    isLoginLoading.value = false;
   }
 }
 </script>
 
 <template>
-  <form @submit="handleSubmit">
+  <form v-if="!user.email" @submit="handleSubmit">
     <label>
       Email
       <input type="text" placeholder="email@provider.com" v-model="email" />
@@ -67,12 +71,14 @@ async function handleSubmit(e: Event) {
       Name
       <input type="text" placeholder="Bob" v-model="name" />
     </label>
-    <button class="submitButton">
-      <template v-if="type === 'login'">Login</template>
+    <button class="submitButton" :disabled="isLoginLoading">
+      <template v-if="isLoginLoading">Loading...</template>
+      <template v-else-if="type === 'login'">Login</template>
       <template v-else>Register</template>
     </button>
     <p class="errorText" v-if="error">Error: {{ error }}</p>
   </form>
+  <p v-else>Already logged in.</p>
 </template>
 
 <style scoped>
