@@ -1,10 +1,10 @@
 <script setup lang="ts">
-import TheWelcome from "../components/TheWelcome.vue";
+import PollsList from "@/components/PollsList.vue";
 </script>
 
 <template>
   <main>
     <h1>People Polls</h1>
-    <TheWelcome />
+    <PollsList />
   </main>
 </template>

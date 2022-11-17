@@ -197,6 +197,8 @@ async fn get_polls(
         .query_json(
             "Select Poll {
                 question_text,
+                prompt_a,
+                prompt_b,
                 user_response :=(
                     Select PollResponse { choice }
                         filter PollResponse.poll.id = Poll.id and PollResponse.user.email = <str>$0
@@ -204,7 +206,7 @@ async fn get_polls(
             } filter count((
                 Select PollResponse 
                     filter PollResponse.poll.id = Poll.id and PollResponse.user.email = <str>$0
-            )) = <int64>$1;",
+            )) = <int64>$1 and Poll.is_approved = true;",
             &(
                 "maxmo@gmail.com",
                 if query.hasVotedIn { 1i64 } else { 0i64 },

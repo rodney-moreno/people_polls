@@ -4,9 +4,9 @@ import { RouterLink } from "vue-router";
 </script>
 
 <template>
-  <h1>Login</h1>
-  <LoginRegister type="login" />
-  <RouterLink to="/register">Register</RouterLink>
+  <h1>Register</h1>
+  <LoginRegister type="register" />
+  <RouterLink to="/login">Login</RouterLink>
 </template>
 
 <style scoped></style>
