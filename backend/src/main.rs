@@ -305,6 +305,8 @@ async fn logout(session: Session) -> impl Responder {
 async fn main() -> anyhow::Result<()> {
     let client = edgedb_tokio::create_client().await?;
     client.ensure_connected().await?;
+    std::env::set_var("RUST_LOG", "debug");
+    std::env::set_var("RUST_BACKTRACE", "1");
     env_logger::init_from_env(Env::default().default_filter_or("info"));
     let data = web::Data::new(Mutex::new(AppState { client }));
 
