@@ -219,6 +219,7 @@ async fn get_polls(
     let result = conn
         .query_json(
             "Select Poll {
+                id,
                 question_text,
                 prompt_a,
                 prompt_b,

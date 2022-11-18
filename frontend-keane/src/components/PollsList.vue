@@ -31,30 +31,23 @@ const { data, error } = useSWRV(
           <button aria-controls="food">Food</button>
         </menu>
         <article role="tabpanel" id="music">
-          <p>Set your listening preferences</p>
-          <fieldset>
-            <legend>Today's mood</legend>
-            <div class="field-row">
-              <input id="radio29" type="radio" name="fieldset-example2" />
-              <label for="radio29">Nicki Minaj</label>
-            </div>
-            <div class="field-row">
-              <input id="radio30" type="radio" name="fieldset-example2" />
-              <label for="radio30">Bell Towers</label>
-            </div>
-            <div class="field-row">
-              <input id="radio31" type="radio" name="fieldset-example2" />
-              <label for="radio31">The Glamorous Monique</label>
-            </div>
-            <div class="field-row">
-              <input id="radio32" type="radio" name="fieldset-example2" />
-              <label for="radio32">EN. V</label>
-            </div>
-          </fieldset>
-          <section class="field-row">
-            <button>Reset Alarm...</button>
-            <label>Try this to get some attention</label>
-          </section>
+          <template v-for="(poll, index) in data" :key="poll.id">
+            <p>{{ poll.question_text }}</p>
+            <fieldset>
+              <div class="field-row">
+                <input :id="`radio-${index}-a`" type="radio" :name="poll.id" />
+                <label :for="`radio-${index}-a`">{{ poll.prompt_a }}</label>
+              </div>
+              <div class="field-row">
+                <input :id="`radio-${index}-b`" type="radio" :name="poll.id" />
+                <label :for="`radio-${index}-b`">{{ poll.prompt_b }}</label>
+              </div>
+            </fieldset>
+            <section class="field-row">
+              <button>Submit</button>
+              <label>{{ poll.id }}</label>
+            </section>
+          </template>
         </article>
 
         <article role="tabpanel" hidden id="dogs">
