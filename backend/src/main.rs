@@ -176,7 +176,13 @@ struct CreatePollResponseInput {
 async fn create_poll_input(
     input: web::Json<CreatePollResponseInput>,
     data: web::Data<Mutex<AppState>>,
+    session_user: Option<web::ReqData<SessionUser>>,
 ) -> impl Responder {
+    let email = &session_user
+        .ok_or(actix_web::error::ErrorInternalServerError(
+            "Session user is missing.",
+        ))?
+        .email;
     let conn = &data.lock().unwrap().client;
     let result = conn
         .query_required_single_json(
@@ -187,7 +193,7 @@ async fn create_poll_input(
             };",
             &(
                 if input.choice { "ChoiceA" } else { "ChoiceB" },
-                "maxmo@gmail.com",
+                email,
                 &input.poll_id,
             ),
         )
