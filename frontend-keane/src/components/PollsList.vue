@@ -24,7 +24,7 @@ const {
   }).then((response) => response.json());
 });
 
-const tab = ref<Tab>("voted");
+const tab = ref<Tab>("not-voted");
 
 const choiceState = reactive<Record<string, boolean | undefined>>({});
 
@@ -59,7 +59,7 @@ async function handleSubmit(pollId: string) {
           <template v-if="tab === 'not-voted'"
             >Polls you haven't voted in yet
           </template>
-          <template v-if="tab === 'voted'">Polls you voted already</template>
+          <template v-if="tab === 'voted'">Polls you voted in already</template>
         </div>
         <div class="title-bar-controls">
           <button aria-label="Minimize"></button>
@@ -70,24 +70,24 @@ async function handleSubmit(pollId: string) {
       <div class="window-body">
         <menu role="tablist">
           <button
-            :aria-selected="tab === 'voted' ? 'true' : 'false'"
-            aria-controls="voted"
-            @click="handleTabClick('voted')"
+            :aria-selected="tab === 'not-voted' ? 'true' : 'false'"
+            aria-controls="not-voted"
+            @click="handleTabClick('not-voted')"
           >
             Not Voted
           </button>
           <button
-            :aria-selected="tab === 'not-voted' ? 'true' : 'false'"
-            aria-controls="not-voted"
-            @click="handleTabClick('not-voted')"
+            :aria-selected="tab === 'voted' ? 'true' : 'false'"
+            aria-controls="voted"
+            @click="handleTabClick('voted')"
           >
             Voted
           </button>
         </menu>
         <article
           role="tabpanel"
-          :hidden="tab !== 'voted' ? true : false"
-          id="voted"
+          :hidden="tab !== 'not-voted' ? true : false"
+          id="not-voted"
         >
           <div v-if="hasNotVotedInError">failed to load</div>
           <progress v-if="!hasNotVotedInData"></progress>
@@ -133,8 +133,8 @@ async function handleSubmit(pollId: string) {
 
         <article
           role="tabpanel"
-          :hidden="tab !== 'not-voted' ? true : false"
-          id="not-voted"
+          :hidden="tab !== 'voted' ? true : false"
+          id="voted"
         >
           <div v-if="hasVotedInError">failed to load</div>
           <progress v-if="!hasVotedInData"></progress>
