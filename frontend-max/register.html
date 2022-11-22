@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@0.9.4/css/bulma.min.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+</head>
+
+<body>
+    <form action="register.html" method="post" class="container">
+        <div class="field">
+            <label for="name" class="label">Name:</label>
+            <input type="text" id="name" name="user_name" class="input" placeholder="Email"/>
+        </div>
+        <div class="field">
+            <label for="mail" class="label">E-mail:</label>
+            <input type="email" id="mail" name="user_email" class="input" />
+        </div>
+        <div class="field">
+            <label for="password" class="label">Password:</label>
+            <input type="text" id="pass" name="user_password" class="input" />
+        </div>
+        <div>
+            <button type="submit" class="button is-link">Register</button>
+        </div>
+    </form>
+</body>
+<script>
+    const form = document.querySelector("form");
+    form.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        data = { name: form.elements['user_name'].value, email: form.elements['user_email'].value, password: form.elements['user_password'].value }
+
+        console.log(data);
+        const response = await fetch("http://localhost:8080/register", {
+            method: 'POST', // *GET, POST, PUT, DELETE, etc.
+            mode: 'cors', // no-cors, *cors, same-origin
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(data) // body data type must match "Content-Type" header
+        });
+        return response.json(); // parses JSON response into native JavaScript objects
+    })
+</script>
+</html>
