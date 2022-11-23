@@ -1,10 +1,43 @@
 <!DOCTYPE html>
 <html>
-    <head>
 
-    </head>
-    <body>
-        <a href="/login">Login</a>
-        <a href="/register">Register</a>
-    </body>
+<head>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@0.9.4/css/bulma.min.css">
+    <style>
+        input.checkbox {
+            width: 25px;
+            height: 25px;
+        }
+        h1 {
+            text-align: center;
+        }
+    </style>
+    </style>
+</head>
+
+<body>
+    <nav class="navbar is-link">
+        <div class="navbar-menu">
+            <div class="navbar-start">
+                <a href="/" class="navbar-item is-size-4">Home</a>
+                <a href="/login" class="navbar-item is-size-4">Login</a>
+                <a href="/register" class="navbar-item is-size-4">Register</a>
+                <a href="/suggestpoll" class="navbar-item is-size-4">Suggest Poll</a>
+                <a href="/results" class="navbar-item is-size-4">Results</a>
+            </div>
+        </div>
+    </nav>
+    <section class="section">
+        <h1 class="container is-size-1">Do you like hot soup or cold sandwhiches?</h1>
+        <div class="container">
+            <label for="optionOne" class="checkbox is-size-3">Hot Soup</label>
+            <input type="checkbox" id="optionOne" name="option_one" class="checkbox" />
+        </div>
+        <div class="container">
+            <label for="optionTwo" class="checkbox is-size-3">Cold Sandwhiches</label>
+            <input type="checkbox" id="optionTwo" name="option_two" class="checkbox" />
+        </div>
+    </section>
+</body>
+
 </html>
