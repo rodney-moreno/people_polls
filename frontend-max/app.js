@@ -23,6 +23,18 @@ const server = http.createServer((req, res) => {
             res.write(data);
             res.end();
         });
+    } else if (req.url === '/suggestpoll') {
+        fs.readFile('suggestpoll.html', (err, data) => {
+            res.writeHead(200, { 'Content-Type': 'text/html' });
+            res.write(data);
+            res.end();
+        });
+    } else if (req.url === '/results') {
+        fs.readFile('results.html', (err, data) => {
+            res.writeHead(200, { 'Content-Type': 'text/html' });
+            res.write(data);
+            res.end();
+        });
     } else {
         res.writeHead(404, { 'Content-Type': 'text' });
         res.write("Page does not exist");
