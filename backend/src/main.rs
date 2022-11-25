@@ -184,6 +184,19 @@ async fn create_poll_input(
         ))?
         .email;
     let conn = &data.lock().unwrap().client;
+
+    let result = conn
+        .query_single_json(
+            "select Poll filter .id = <uuid><str>$0 and Poll.created_at + <duration>'168 hours' <= datetime_current();",
+            &(&input.poll_id,),
+        )
+        .await
+        .map_err(|e| actix_web::error::ErrorInternalServerError(e))?;
+
+    result.ok_or(actix_web::error::ErrorBadRequest(
+        "Poll is not finished yet.",
+    ))?;
+
     let result = conn
         .query_required_single_json(
             "insert PollResponse {
