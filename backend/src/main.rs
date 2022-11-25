@@ -253,6 +253,41 @@ async fn get_polls(
     }
 }
 
+async fn get_poll_results(
+    data: web::Data<Mutex<AppState>>,
+    path: web::Path<(String,)>,
+) -> impl Responder {
+    let poll_id = path.into_inner().0;
+    let conn = &data.lock().unwrap().client;
+
+    let result = conn
+        .query_json(
+            "select Poll {
+                id,
+                question_text,
+                prompt_a,
+                prompt_b,
+                a_count :=(
+                    count((
+                        select PollResponse
+                            filter PollResponse.poll.id = Poll.id and PollResponse.choice = Choice.ChoiceA
+                    ))
+                ),
+                b_count :=(
+                    count((
+                        select PollResponse
+                            filter PollResponse.poll.id = Poll.id and PollResponse.choice = Choice.ChoiceB
+                    ))
+                )
+            } filter Poll.id = <uuid><str>$0;",
+            &(&poll_id,),
+        )
+        .await
+        .map_err(|e| actix_web::error::ErrorInternalServerError(e))?;
+
+    Result::<String, Error>::Ok(result.to_string())
+}
+
 #[derive(Deserialize)]
 struct RegisterInput {
     email: String,
@@ -393,6 +428,7 @@ async fn main() -> anyhow::Result<()> {
             .route("/me", web::get().to(get_current_user).wrap(Authenticate))
             .route("/polls", web::post().to(suggest_poll).wrap(Authenticate))
             .route("/polls", web::get().to(get_polls).wrap(Authenticate))
+            .route("/polls/{poll_id}", web::get().to(get_poll_results).wrap(Authenticate))
             .route("/pollResponses", web::post().to(create_poll_input).wrap(Authenticate))
             .route("/register", web::post().to(register))
             .route("/login", web::post().to(login))

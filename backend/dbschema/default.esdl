@@ -24,6 +24,7 @@ module default {
       constraint exclusive;
     }
     required property is_approved -> bool;
+    required property created_at -> datetime;
   }
 
   type PollResponse {
