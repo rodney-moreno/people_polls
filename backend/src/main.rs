@@ -279,7 +279,7 @@ async fn get_poll_results(
                             filter PollResponse.poll.id = Poll.id and PollResponse.choice = Choice.ChoiceB
                     ))
                 )
-            } filter Poll.id = <uuid><str>$0;",
+            } filter Poll.id = <uuid><str>$0 and Poll.created_at + <duration>'168 hours' <= datetime_current();",
             &(&poll_id,),
         )
         .await
