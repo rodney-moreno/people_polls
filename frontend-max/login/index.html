@@ -28,7 +28,7 @@
             <input type="text" id="pass" name="user_password" class="input" />
         </div>
         <div>
-            <button type="submit" class="button is-link">Register</button>
+            <button type="submit" class="button is-link">Login</button>
         </div>
     </form>
 </body>
@@ -36,9 +36,8 @@
     const form = document.querySelector("form");
     form.addEventListener("submit", async (e) => {
         e.preventDefault();
+        
         data = { email: form.elements['user_email'].value, password: form.elements['user_password'].value }
-
-        console.log(data);
         const response = await fetch("http://localhost:8080/login", {
             method: 'POST', // *GET, POST, PUT, DELETE, etc.
             mode: 'cors', // no-cors, *cors, same-origin
@@ -47,7 +46,9 @@
             },
             body: JSON.stringify(data) // body data type must match "Content-Type" header
         });
-        return response.json(); // parses JSON response into native JavaScript objects
-    })
+        
+        return response; // parses JSON response into native JavaScript objects
+    }).then((data) => console.log(data.json()))
+    .catch((data) => console.log("Could not login successfully"));
 </script>
 </html>
